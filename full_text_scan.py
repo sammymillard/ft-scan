@@ -31,9 +31,9 @@ __maintainer__ = "Christian Christiansen"
 __email__ = "christian dot l dot christiansen at gmail dot com"
 __status__ = "Development"
 
-from pathlib import Path # to find pdfs to extract text from
-import argparse # to parse command-line arguments when run from the shell
-import textract # to extract the text from pdf
+import re
+import textract  # to extract the text from pdf
+import sys
 
 DEFAULT_KEYWORDS = [
     " peak ",
@@ -45,15 +45,16 @@ DEFAULT_KEYWORDS = [
     "individual rhythm",
     "mean rhythm",
     "dominant rhythm",
-    " paf",
-    "ipaf",
-    " apf",
+    " paf ",
+    " ipaf ",
+    " apf ",
     "iapf",
-    "iaf",
-    "pdr",
-    "m.d.f",
+    " iaf ",
+    " pdr ",
+    " m.d.f. ",
     " pf ",
 ]
+
 
 class Article:
     def __init__(self, raw_data, keywords=None):
@@ -72,7 +73,7 @@ class Article:
         def get_author(text):
             try:
                 return re.search(
-                    r"(?<=author = \{).+?(?=\},)",
+                    r"(?<=author = {).+?(?=},)",
                     text
                 ).group(0).strip().replace("\n", " ").replace(";", ",")
             except:
@@ -85,17 +86,19 @@ class Article:
     def title(self):
         def get_title(text):
             try:
-                return re.search(
-                    r"(?<=title = \{).+?(?=\},)",
-                    text
-                ).group(0).
-                strip().
-                replace("\n", " ").
-                replace(";",",").
-                replace("\"","").
-                replace("'", "").
-                replace("{","").
-                replace("}","")
+                return (
+                    re.search(
+                        r"(?<=title = {).+?(?=},)",
+                        text
+                    ).group(0)
+                    .strip()
+                    .replace("\n", " ")
+                    .replace(";", ",")
+                    .replace("\"", "")
+                    .replace("'", "")
+                    .replace("{", "")
+                    .replace("}", "")
+                )
             except:
                 return ""
         if self.__title is None:
@@ -108,7 +111,7 @@ class Article:
             try:
                 return int(
                     re.search(
-                        r"(?<=year = \{).+?(?=\},)", text
+                        r"(?<=year = {).+?(?=})", text
                     ).group(0).strip()
                 )
             except:
@@ -121,10 +124,11 @@ class Article:
     def filename(self):
         def get_filename(text):
             try:
-                return re.search(
-                    r"(?<=file = \{).+?(?=\},)",
+                filenames = re.search(
+                    r"(?<=file = {).+?(?=},)",
                     text
                 ).group(0)
+                return filenames.split(":")[1]
             except:
                 return ""
         if self.__filename is None:
@@ -141,7 +145,7 @@ class Article:
             except Exception:
                 return ""
         if self.__text is None:
-            self.__text = get_text(self.__filename)
+            self.__text = get_text(self.filename)
         return self.__text
 
     @property
@@ -164,33 +168,37 @@ class Article:
     def as_markdown(self):
         def keyword_sentences(text, keywords):
             def highlight(line, keyword):
-                return (
-                    line[:line.index(keyword)]+
-                    "**"+keyword+"**"+
-                    line[line.index(keyword)+len(keyword):]
-                )
+                for _ in range(line.lower().count(keyword)):
+                    start = line.lower().index(keyword.lstrip())
+                    end = start + len(keyword.strip())
+                    line = line[:start]+"**"+line[start:end]+"**"+line[end:]
+                return line
             sentences = ""
             for line in text.split("\n"):
+                add_line = False
+                line_to_add = line
                 for keyword in keywords:
-                    if keyword in line.lower():
-                        sentences+=highlight(line, keyword)
-                        break
+                    if keyword in line_to_add.lower():
+                        add_line = True
+                        line_to_add = highlight(line_to_add, keyword)
+                if add_line:
+                    sentences += line_to_add+"\n\n"
             return sentences
 
         return (
             f"# Title: {self.title}\n"
-            f"## Author: {self.author}\n"
-            f"## Year: {self.year}\n"
-            f"## Filename: {self.filename}\n"
-            f"## Keywords count: {self.keywords_count}\n\n"
-            f"{self.keyword_sentences}\n"
+            f"**Author:** {self.author}\n"
+            f"**Year:** {self.year}\n"
+            f"**Filename:** {self.filename}\n"
+            f"**Keywords count:** {self.keywords_count}\n\n"
+            f"{keyword_sentences(self.text, self.keywords)}\n"
         )
 
 
 def main(bibtex_filename):
     def article_sort(article):
         return (
-            article.keywords_count(DEFAULT_KEYWORDS),
+            article.keywords_count,
             article.year,
             article.author,
             article.title
