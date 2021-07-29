@@ -35,7 +35,7 @@ from pathlib import Path # to find pdfs to extract text from
 import argparse # to parse command-line arguments when run from the shell
 import textract # to extract the text from pdf
 
-default_keywords = [
+DEFAULT_KEYWORDS = [
     " peak ",
     "-peak",
     "peak-",
@@ -55,66 +55,162 @@ default_keywords = [
     " pf ",
 ]
 
-def keywords_count(text, keywords):
-    """The total number of times keywords appear in a text."""
-    return sum([text.count(keyword) for keyword in keywords])
+class Article:
+    def __init__(self, raw_data, keywords=None):
+        self.__raw_data = raw_data
+        self.keywords = keywords if keywords is not None else []
+        self.__author = None
+        self.__title = None
+        self.__year = None
+        self.__filename = None
+        self.__text = None
+        self.__sanitized_text = None
+        self.__keywords_count = None
 
-def keyword_threshold(text, keywords, *, threshold=10):
-    """Return True if more instances of keywords than threshold, else False."""
-    return keywords_count(text, keywords) >= threshold
+    @property
+    def author(self):
+        def get_author(text):
+            try:
+                return re.search(
+                    r"(?<=author = \{).+?(?=\},)",
+                    text
+                ).group(0).strip().replace("\n", " ").replace(";", ",")
+            except:
+                return ""
+        if self.__author is None:
+            self.__author = get_author(self.__raw_data)
+        return self.__author
 
-def sanity_check(text, *, check_threshold=10, checks=None):
-    """Ensure the text behaves as expected."""
-    if checks is None:
-        checks = [" the ", " a "]
-    return keyword_threshold(text, keywords=checks, threshold=check_threshold)
+    @property
+    def title(self):
+        def get_title(text):
+            try:
+                return re.search(
+                    r"(?<=title = \{).+?(?=\},)",
+                    text
+                ).group(0).
+                strip().
+                replace("\n", " ").
+                replace(";",",").
+                replace("\"","").
+                replace("'", "").
+                replace("{","").
+                replace("}","")
+            except:
+                return ""
+        if self.__title is None:
+            self.__title = get_title(self.__raw_data)
+        return self.__title
 
-def sanitize_text(text):
-    """Remove newlines and set all of the text to lowercase."""
-    return text.replace("\n", " ").lower()
+    @property
+    def year(self):
+        def get_year(text):
+            try:
+                return int(
+                    re.search(
+                        r"(?<=year = \{).+?(?=\},)", text
+                    ).group(0).strip()
+                )
+            except:
+                return 0
+        if self.__year is None:
+            self.__year = get_year(self.__raw_data)
+        return self.__year
 
-def full_text_scan(
-        filename, *,
-        language="eng", keywords=None, threshold=10, csv=False
-):
-    """Extract text from file. If the number of instances of keywords exceeds
-    the threshold, output the filename of the file."""
-    try:
-        text = sanitize_text(
-            textract.process(
-                filename, method="pdftotext", language=language
-            ).decode("utf-8")
+    @property
+    def filename(self):
+        def get_filename(text):
+            try:
+                return re.search(
+                    r"(?<=file = \{).+?(?=\},)",
+                    text
+                ).group(0)
+            except:
+                return ""
+        if self.__filename is None:
+            self.__filename = get_filename(self.__raw_data)
+        return self.__filename
+
+    @property
+    def text(self):
+        def get_text(filename):
+            try:
+                return textract.process(
+                    filename, method="pdftotext"
+                ).decode("utf-8")
+            except Exception:
+                return ""
+        if self.__text is None:
+            self.__text = get_text(self.__filename)
+        return self.__text
+
+    @property
+    def sanitized_text(self):
+        def sanitize_text(text):
+            """Remove newlines and set all of the text to lowercase."""
+            return text.replace("\n", " ").lower()
+        if self.__sanitized_text is None:
+            self.__sanitized_text = sanitize_text(self.text)
+        return self.__sanitized_text
+
+    @property
+    def keywords_count(self):
+        if self.__keywords_count is None:
+            self.__keywords_count = sum([
+                self.text.count(keyword) for keyword in self.keywords
+            ])
+        return self.__keywords_count
+
+    def as_markdown(self):
+        def keyword_sentences(text, keywords):
+            def highlight(line, keyword):
+                return (
+                    line[:line.index(keyword)]+
+                    "**"+keyword+"**"+
+                    line[line.index(keyword)+len(keyword):]
+                )
+            sentences = ""
+            for line in text.split("\n"):
+                for keyword in keywords:
+                    if keyword in line.lower():
+                        sentences+=highlight(line, keyword)
+                        break
+            return sentences
+
+        return (
+            f"# Title: {self.title}\n"
+            f"## Author: {self.author}\n"
+            f"## Year: {self.year}\n"
+            f"## Filename: {self.filename}\n"
+            f"## Keywords count: {self.keywords_count}\n\n"
+            f"{self.keyword_sentences}\n"
         )
-    except Exception:
-        if csv:
-            return f"{filename};-2\n"
-        return False
-    else:
-        if sanity_check(text):
-            if not keyword_threshold(
-                    text=text, keywords=keywords, threshold=threshold
-            ):
-                if csv:
-                    return (
-                        f"{filename};"
-                        f"{keywords_count(text, keywords=keywords)}\n"
-                    )
-                return False
-            if csv:
-                return f"{filename};{threshold}\n"
-            return True
-        if csv:
-            return f"{filename};-1\n"
-        return False
+
+
+def main(bibtex_filename):
+    def article_sort(article):
+        return (
+            article.keywords_count(DEFAULT_KEYWORDS),
+            article.year,
+            article.author,
+            article.title
+        )
+
+    with open(bibtex_filename) as bibtex_file:
+        bib = bibtex_file.read()
+
+    articles = sorted(
+        [
+            Article(article, keywords=DEFAULT_KEYWORDS)
+            for article in bib.split("\n}\n")[:-1]
+        ],
+        key=article_sort
+    )
+
+    print("\n".join(article.as_markdown() for article in articles))
+
 
 if __name__ == "__main__":
-    output_csv = "filename;count\n"
-
-    p = Path("/path/to/files")
-    for pdf_filepath in p.rglob('*.pdf'):
-        output_csv += full_text_scan(
-            str(pdf_filepath), keywords=default_keywords, csv=output_csv
-        )
-
-    with open("results.csv", "w") as output_file:
-        output_file.write(output_csv)
+    if len(sys.argv) != 2:
+        exit("Please give the path to a bibtex file.")
+    main(bibtex_filename=sys.argv[1])
