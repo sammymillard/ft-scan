@@ -32,8 +32,10 @@ __email__ = "christian dot l dot christiansen at gmail dot com"
 __status__ = "Development"
 
 import re
-import textract  # to extract the text from pdf
 import sys
+import textract  # to extract the text from pdf
+from unidecode import unidecode
+
 
 # DEFAULT_KEYWORDS = [
 #     " peak ",
@@ -60,14 +62,22 @@ DEFAULT_KEYWORDS = [
     " peak ",
     "-peak",
     "peak-",
-    "(peak ",
+    "(peak",
     " peak)",
-    "\"peak ",
+    "\"peak",
     " peak\"",
+    "`peak",
+    " peak'",
     "individual frequency",
+    "individual alpha frequency",
     "mean frequency",
+    "mean alpha frequency",
+    "median frequency",
+    "median alpha frequency"
     "dominant frequency",
+    "dominant alpha frequency",
     "dominant rhythm",
+    "dominant alpha rhythm",
     " paf ",
     " ipaf ",
     " apf ",
@@ -76,7 +86,8 @@ DEFAULT_KEYWORDS = [
     " pdr ",
     " m.d.f. ",
     " pf ",
-    " abp "
+    " abp ",
+    " iabp ",
 ]
 
 
@@ -176,7 +187,7 @@ class Article:
     def sanitized_text(self):
         def sanitize_text(text):
             """Remove newlines and set all of the text to lowercase."""
-            return text.replace("\n", " ").lower()
+            return unidecode(text).replace("\n", " ").lower()
         if self.__sanitized_text is None:
             self.__sanitized_text = sanitize_text(self.text)
         return self.__sanitized_text
