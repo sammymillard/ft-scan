@@ -35,15 +35,38 @@ import re
 import textract  # to extract the text from pdf
 import sys
 
+# DEFAULT_KEYWORDS = [
+#     " peak ",
+#     "-peak",
+#     "peak-",
+#     "individual frequency",
+#     "mean frequency",
+#     "dominant frequency",
+#     "individual rhythm",
+#     "mean rhythm",
+#     "dominant rhythm",
+#     " paf ",
+#     " ipaf ",
+#     " apf ",
+#     "iapf",
+#     " iaf ",
+#     " pdr ",
+#     " m.d.f. ",
+#     " pf ",
+#     " abp "
+# ]
+
 DEFAULT_KEYWORDS = [
     " peak ",
     "-peak",
     "peak-",
+    "(peak ",
+    " peak)",
+    "\"peak ",
+    " peak\"",
     "individual frequency",
     "mean frequency",
     "dominant frequency",
-    "individual rhythm",
-    "mean rhythm",
     "dominant rhythm",
     " paf ",
     " ipaf ",
@@ -53,6 +76,7 @@ DEFAULT_KEYWORDS = [
     " pdr ",
     " m.d.f. ",
     " pf ",
+    " abp "
 ]
 
 
@@ -159,10 +183,23 @@ class Article:
 
     @property
     def keywords_count(self):
-        if self.__keywords_count is None:
-            self.__keywords_count = sum([
-                self.text.count(keyword) for keyword in self.keywords
+        def get_kw_count(text, keywords):
+            return sum([
+                text.count(keyword) for keyword in keywords
             ])
+
+        def sanity_check(text):
+            return get_kw_count(text, [" the ", " a "]) >= 10
+
+        if self.__keywords_count is None:
+            self.__keywords_count = get_kw_count(
+                self.sanitized_text, self.keywords
+            )
+            if self.__keywords_count == 0:
+                if self.text == "":
+                    self.__keywords_count = -2
+                elif not sanity_check(self.sanitized_text):
+                    self.__keywords_count = -1
         return self.__keywords_count
 
     def as_markdown(self):
@@ -194,8 +231,17 @@ class Article:
             f"{keyword_sentences(self.text, self.keywords)}\n"
         )
 
+    def as_csv(self):
+        return (
+            f"{self.title};"
+            f"{self.author};"
+            f"{self.year};"
+            f"{self.filename};"
+            f"{self.keywords_count}"
+        )
 
-def main(bibtex_filename):
+
+def main(bibtex_filename, csv=None):
     def article_sort(article):
         return (
             article.keywords_count,
@@ -217,8 +263,15 @@ def main(bibtex_filename):
 
     print("\n".join(article.as_markdown() for article in articles))
 
+    if csv:
+        with open(csv, "w") as csv_file:
+            csv_output = "title;author;year;filename;count\n"
+            csv_output += "\n".join(article.as_csv() for article in articles)
+            csv_file.write(csv_output)
+
 
 if __name__ == "__main__":
-    if len(sys.argv) != 2:
+    if len(sys.argv) < 2:
         exit("Please give the path to a bibtex file.")
-    main(bibtex_filename=sys.argv[1])
+    csv = sys.argv[2] if len(sys.argv) == 3 else None
+    main(bibtex_filename=sys.argv[1], csv=csv)
