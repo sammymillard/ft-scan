@@ -159,11 +159,17 @@ class Article:
     def filename(self):
         def get_filename(text):
             try:
-                filenames = re.search(
+                filename = re.search(
                     r"(?<=file = {).+?(?=},)",
                     text
                 ).group(0)
-                return filenames.split(":")[1]
+                filename = filename.split(":")[1]
+                if filename.startswith("/Volumes"):
+                    filename = filename.replace(
+                        "/Volumes",
+                        "//vmfile01.ad.neura.edu.au/users"
+                    )
+                return filename
             except:
                 return ""
         if self.__filename is None:
@@ -252,7 +258,7 @@ class Article:
         )
 
 
-def main(bibtex_filename, csv=None):
+def main(bibtex_filename, markdown=None, csv=None):
     def article_sort(article):
         return (
             article.keywords_count,
@@ -261,7 +267,7 @@ def main(bibtex_filename, csv=None):
             article.title
         )
 
-    with open(bibtex_filename) as bibtex_file:
+    with open(bibtex_filename, encoding='utf-8') as bibtex_file:
         bib = bibtex_file.read()
 
     articles = sorted(
@@ -272,17 +278,19 @@ def main(bibtex_filename, csv=None):
         key=article_sort
     )
 
-    print("\n".join(article.as_markdown() for article in articles))
+    if markdown:
+        with open(markdown, "w", encoding="utf-8") as markdown_file:
+            markdown_file.write("\n".join(article.as_markdown() for article in articles))
 
     if csv:
-        with open(csv, "w") as csv_file:
+        with open(csv, "w", encoding="utf-8") as csv_file:
             csv_output = "title;author;year;filename;count\n"
             csv_output += "\n".join(article.as_csv() for article in articles)
             csv_file.write(csv_output)
 
-
 if __name__ == "__main__":
     if len(sys.argv) < 2:
         exit("Please give the path to a bibtex file.")
-    csv = sys.argv[2] if len(sys.argv) == 3 else None
-    main(bibtex_filename=sys.argv[1], csv=csv)
+    markdown = sys.argv[2] if len(sys.argv) >= 3 else None
+    csv = sys.argv[3] if len(sys.argv) == 4 else None
+    main(bibtex_filename=sys.argv[1], markdown=markdown, csv=csv)
