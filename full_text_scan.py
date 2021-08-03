@@ -90,11 +90,19 @@ DEFAULT_KEYWORDS = [
     " iabp ",
 ]
 
+IGNORE_KEYWORDS = [
+
+]
+
 
 class Article:
-    def __init__(self, raw_data, keywords=None):
+    def __init__(self, raw_data, keywords=None, ignore_keywords=None):
         self.__raw_data = raw_data
         self.keywords = keywords if keywords is not None else []
+        if ignore_keywords is not None:
+            self.ignore_keywords = ignore_keywords
+        else:
+            self.ignore_keywords = []
         self.__author = None
         self.__title = None
         self.__year = None
@@ -211,6 +219,8 @@ class Article:
         if self.__keywords_count is None:
             self.__keywords_count = get_kw_count(
                 self.sanitized_text, self.keywords
+            ) - get_kw_count(
+                self.sanitized_text, self.ignore_keywords
             )
             if self.__keywords_count == 0:
                 if self.text == "":
@@ -272,7 +282,11 @@ def main(bibtex_filename, markdown=None, csv=None):
 
     articles = sorted(
         [
-            Article(article, keywords=DEFAULT_KEYWORDS)
+            Article(
+                article,
+                keywords=DEFAULT_KEYWORDS,
+                ignore_keywords=IGNORE_KEYWORDS
+            )
             for article in bib.split("\n}\n")[:-1]
         ],
         key=article_sort
