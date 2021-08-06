@@ -305,14 +305,14 @@ class Article:
                 else:
                     False
 
-            def add_highlight(line, start, end):
-                return "".join([
-                    line[:start],
-                    "**", line[start:end], "**",
-                    line[end:]
-                ])
-
             def highlight(line, keyword):
+                def add_highlight(line, start, end):
+                    return "".join([
+                        line[:start],
+                        "**", line[start:end], "**",
+                        line[end:]
+                    ])
+
                 for _ in range(line.lower().count(keyword)):
                     start = line.lower().index(keyword.lstrip())
                     end = start + len(keyword.strip())
