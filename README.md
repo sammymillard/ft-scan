@@ -12,17 +12,26 @@ To run this code you will need Python and two Python packages:
  - `textract`
  - `unidecode`
 
-You will also need the `full_text_scan.py` code and a folder (e.g. ft-scan_example) containing 1) a bibtex of articles (e.g. ft-scan_example.bib) and 2)
-a folder called 'files' with the attached PDFs inside. If you export a collection from Zotero, the format will be correct.
+Additionally, make sure that `pdftotext` from
+[poppler](https://poppler.freedesktop.org/) is installed.
+(Installation instructions are most easily found by searching
+`install poppler pdftotext windows/mac`.)
+
+You will also need the `full_text_scan.py` code and a folder
+(e.g. ft-scan_example) containing:
+1. a bibtex of articles (e.g. ft-scan_example.bib).
+2. a folder called 'files' with the attached PDFs inside. If you export a
+   collection from Zotero, the format will be correct.
 
 Run with the following command:
 
-```python full_text_scan.py ft-scan_example/ft-scan_example.bib -m ft-scan_example/output_example.md -c csv_result_example.csv```
+```python full_text_scan.py ft-scan_example/ft-scan_example.bib -m ft-scan_example/output_example.md -c ft-scan_example/csv_result_example.csv```
 
-full_text_scan.py runs through the bibtex, finds the attached pdfs from the files folder, and scans the text for keywords.
+full_text_scan.py runs through the bibtex, finds the attached pdfs from the files
+folder, and scans the text for keywords.
 
 The .csv produced contains the article title, author, year, and file location,
-as well as keyword count number
+as well as keyword count number.
 - Default keywords are summed to produce a total of their occurrences, ignore
   words are summed and subtracted from this total.
 - Files that do not pass a sanity check for readability (i.e. file does not
