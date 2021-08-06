@@ -31,8 +31,10 @@ __maintainer__ = "Christian Christiansen"
 __email__ = "christian dot l dot christiansen at gmail dot com"
 __status__ = "Development"
 
+import argparse
+from pathlib import Path
+import os
 import re
-import sys
 import textract  # to extract the text from pdf
 from unidecode import unidecode
 
@@ -113,14 +115,16 @@ IGNORE_KEYWORDS = [
 ]
 #"negative peak","positive peak",
 
-# Exclude article if these words appear and sum to more than 10 (code -5 output)
+# Exclude article if these words appear and sum to more than 10
+# (code -4 output)
 EXCLUDE_MAJOR_KEYWORDS = [
     " poster session",
     " conference abstract",
     " conference schedule",
 ]
 
-# Exclude article if one of these words appear and sum to more than 100 (code -4 output)
+# Exclude article if one of these words appear and sum to more than 100
+# (code -3 output)
 EXCLUDE_MINOR_KEYWORDS = [
     " poster ",
     " abstract",
@@ -158,6 +162,8 @@ class Article:
         self.__text = None
         self.__sanitized_text = None
         self.__keywords_count = None
+
+        self.text # Initialise getting the text
 
     @property
     def author(self):
@@ -366,6 +372,10 @@ def main(bibtex_filename, markdown=None, csv=None):
     with open(bibtex_filename, encoding='utf-8') as bibtex_file:
         bib = bibtex_file.read()
 
+    old_cwd = os.getcwd()
+    p = Path(bibtex_filename)
+    os.chdir(p.parent.absolute())
+
     articles = sorted(
         [
             Article(
@@ -374,15 +384,19 @@ def main(bibtex_filename, markdown=None, csv=None):
                 ignore_keywords=IGNORE_KEYWORDS,
                 exclude_major_keywords=EXCLUDE_MAJOR_KEYWORDS,
                 exclude_minor_keywords=EXCLUDE_MINOR_KEYWORDS,
-    )
+            )
             for article in bib.split("\n}\n")[:-1]
         ],
         key=article_sort
     )
 
+    os.chdir(old_cwd)
+
     if markdown:
         with open(markdown, "w", encoding="utf-8") as markdown_file:
-            markdown_file.write("\n".join(article.as_markdown() for article in articles))
+            markdown_file.write(
+                "\n".join(article.as_markdown() for article in articles)
+            )
 
     if csv:
         with open(csv, "w", encoding="utf-8") as csv_file:
@@ -391,8 +405,26 @@ def main(bibtex_filename, markdown=None, csv=None):
             csv_file.write(csv_output)
 
 if __name__ == "__main__":
-    if len(sys.argv) < 2:
-        exit("Please give the path to a bibtex file.")
-    markdown = sys.argv[2] if len(sys.argv) >= 3 else None
-    csv = sys.argv[3] if len(sys.argv) == 4 else None
-    main(bibtex_filename=sys.argv[1], markdown=markdown, csv=csv)
+    parser = argparse.ArgumentParser(
+        description="Search full texts for keywords."
+    )
+    parser.add_argument(
+        'bibtex',
+        metavar='BibTeX input',
+        type=str,
+        help='BibTex input filename'
+    )
+    parser.add_argument(
+        "-m",
+        "--markdown",
+        help="Markdown output",
+        default=None
+    )
+    parser.add_argument(
+        "-c",
+        "--csv",
+        help="CSV output",
+        default=None
+    )
+    args = parser.parse_args()
+    main(bibtex_filename=args.bibtex, markdown=args.markdown, csv=args.csv)
