@@ -130,11 +130,13 @@ EXCLUDE_MINOR_KEYWORDS = [
 
 
 class Article:
+    """An article, as defined in a bibtex file."""
     def __init__(
             self, raw_data, *,
             keywords=None, ignore_keywords=None,
             exclude_major_keywords=None, exclude_minor_keywords=None,
     ):
+        """An article is instantiated from the contents of a bibtex file."""
         self.__raw_data = raw_data
         self.keywords = keywords if keywords is not None else []
         if ignore_keywords is not None:
@@ -159,6 +161,7 @@ class Article:
 
     @property
     def author(self):
+        """Author of the article."""
         def get_author(text):
             try:
                 return re.search(
@@ -173,6 +176,7 @@ class Article:
 
     @property
     def title(self):
+        """Title of the article."""
         def get_title(text):
             try:
                 return (
@@ -196,6 +200,7 @@ class Article:
 
     @property
     def year(self):
+        """Year the article was published. If unknown, 0."""
         def get_year(text):
             try:
                 return int(
@@ -211,6 +216,9 @@ class Article:
 
     @property
     def filename(self):
+        """Returns the filename of the attachment. If multiple attachments,
+        it returns the filename of the first attachment.
+        """
         def get_filename(text):
             try:
                 filename = re.search(
@@ -218,11 +226,6 @@ class Article:
                     text
                 ).group(0)
                 filename = filename.split(":")[1]
-                if filename.startswith("/Volumes"):
-                    filename = filename.replace(
-                        "/Volumes",
-                        "//vmfile01.ad.neura.edu.au/users"
-                    )
                 return filename
             except:
                 return ""
@@ -232,6 +235,7 @@ class Article:
 
     @property
     def text(self):
+        """The text from the attachment."""
         def get_text(filename):
             try:
                 return textract.process(
@@ -245,6 +249,7 @@ class Article:
 
     @property
     def sanitized_text(self):
+        """Sanitize the text for the computer."""
         def sanitize_text(text):
             """Remove newlines and set all of the text to lowercase."""
             return unidecode(text).replace("\n", " ").lower()
@@ -254,6 +259,7 @@ class Article:
 
     @property
     def keywords_count(self):
+        """How many instances of keywords appear in the text?"""
         def get_kw_count(text, keywords):
             return sum([
                 text.count(keyword) for keyword in keywords
@@ -285,19 +291,44 @@ class Article:
         return self.__keywords_count
 
     def as_markdown(self):
+        """Output in a markdown format, showing all sentences that include
+        keywords.
+        """
         def keyword_sentences(text, keywords):
+            def is_highlight(line, keyword):
+                """Determine if there's a keyword to be highlighted in the
+                line.
+                """
+                line = line.replace("**"+keyword.lower()+"**", "").lower()
+                if keyword in line:
+                    return True
+                else:
+                    False
+
+            def add_highlight(line, start, end):
+                return "".join([
+                    line[:start],
+                    "**", line[start:end], "**",
+                    line[end:]
+                ])
+
             def highlight(line, keyword):
                 for _ in range(line.lower().count(keyword)):
                     start = line.lower().index(keyword.lstrip())
                     end = start + len(keyword.strip())
-                    line = line[:start]+"**"+line[start:end]+"**"+line[end:]
+                    try:
+                        if line[start-2:start] != "**":
+                            line = add_highlight(line, start, end)
+                    except IndexError:
+                        line = add_highlight(line, start, end)
                 return line
+
             sentences = ""
             for line in text.split("\n"):
                 add_line = False
                 line_to_add = line
                 for keyword in keywords:
-                    if keyword in line_to_add.lower():
+                    if is_highlight(line_to_add, keyword):
                         add_line = True
                         line_to_add = highlight(line_to_add, keyword)
                 if add_line:
