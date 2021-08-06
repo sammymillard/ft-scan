@@ -58,8 +58,10 @@ from unidecode import unidecode
 #     " abp "
 # ]
 
+
+# Keywords that will be added to the total when they occur
 DEFAULT_KEYWORDS = [
-    " peak ",
+    " peak",
     "-peak",
     "peak-",
     "(peak",
@@ -68,41 +70,85 @@ DEFAULT_KEYWORDS = [
     " peak\"",
     "`peak",
     " peak'",
-    "individual frequency",
-    "individual alpha frequency",
-    "mean frequency",
-    "mean alpha frequency",
-    "median frequency",
-    "median alpha frequency"
-    "dominant frequency",
-    "dominant alpha frequency",
+    "individual frequenc",
+    "individual alpha frequenc",
+    "mean frequenc",
+    "mean alpha frequenc",
+    "median frequenc",
+    "median alpha frequenc"
+    "dominant frequenc",
+    "dominant alpha frequenc",
     "dominant rhythm",
     "dominant alpha rhythm",
-    " paf ",
-    " ipaf ",
-    " apf ",
+    "paf",
+    "ipaf",
+    "apf",
     "iapf",
-    " iaf ",
-    " pdr ",
+    "iaf",
+    "pdr",
     " m.d.f. ",
     " pf ",
     " abp ",
-    " iabp ",
+    "iabp",
+    "cf",
+    "mdf"
 ]
 
+# Keywords that will be subtracted from the total when they occur
 IGNORE_KEYWORDS = [
+    "peak power",
+    "peak gamma",
+    "gamma peak",
+    "peak ERD",
+    "ERD peak",
+    "peak ERS",
+    "ERS peak",
+    "peak latenc",
+    "peak amplitude",
+    "peak plasma",
+    "peak force",
+    "peak velocity",
+    "peak response",
+    "peak growth",
+]
+#"negative peak","positive peak",
 
+# Exclude article if these words appear and sum to more than 10 (code -5 output)
+EXCLUDE_MAJOR_KEYWORDS = [
+    " poster session",
+    " conference abstract",
+    " conference schedule",
+]
+
+# Exclude article if one of these words appear and sum to more than 100 (code -4 output)
+EXCLUDE_MINOR_KEYWORDS = [
+    " poster ",
+    " abstract",
+    " annual conference",
+    " conference preceedings",
 ]
 
 
 class Article:
-    def __init__(self, raw_data, keywords=None, ignore_keywords=None):
+    def __init__(
+            self, raw_data, *,
+            keywords=None, ignore_keywords=None,
+            exclude_major_keywords=None, exclude_minor_keywords=None,
+    ):
         self.__raw_data = raw_data
         self.keywords = keywords if keywords is not None else []
         if ignore_keywords is not None:
             self.ignore_keywords = ignore_keywords
         else:
             self.ignore_keywords = []
+        if exclude_major_keywords is not None:
+            self.exclude_major_keywords = exclude_major_keywords
+        else:
+            self.exclude_major_keywords = []
+        if exclude_minor_keywords is not None:
+            self.exclude_minor_keywords = exclude_minor_keywords
+        else:
+            self.exclude_minor_keywords = []
         self.__author = None
         self.__title = None
         self.__year = None
@@ -217,16 +263,25 @@ class Article:
             return get_kw_count(text, [" the ", " a "]) >= 10
 
         if self.__keywords_count is None:
-            self.__keywords_count = get_kw_count(
-                self.sanitized_text, self.keywords
-            ) - get_kw_count(
-                self.sanitized_text, self.ignore_keywords
-            )
-            if self.__keywords_count == 0:
-                if self.text == "":
-                    self.__keywords_count = -2
-                elif not sanity_check(self.sanitized_text):
-                    self.__keywords_count = -1
+            if get_kw_count(
+                self.sanitized_text, self.exclude_major_keywords
+            ) >= 10:
+                self.__keywords_count = -4
+            elif get_kw_count(
+                self.sanitized_text, self.exclude_minor_keywords
+            ) >= 100:
+                self.__keywords_count = -3
+            else:
+                self.__keywords_count = get_kw_count(
+                    self.sanitized_text, self.keywords
+                ) - get_kw_count(
+                    self.sanitized_text, self.ignore_keywords
+                )
+                if self.__keywords_count == 0:
+                    if self.text == "":
+                        self.__keywords_count = -2
+                    elif not sanity_check(self.sanitized_text):
+                        self.__keywords_count = -1
         return self.__keywords_count
 
     def as_markdown(self):
@@ -285,8 +340,10 @@ def main(bibtex_filename, markdown=None, csv=None):
             Article(
                 article,
                 keywords=DEFAULT_KEYWORDS,
-                ignore_keywords=IGNORE_KEYWORDS
-            )
+                ignore_keywords=IGNORE_KEYWORDS,
+                exclude_major_keywords=EXCLUDE_MAJOR_KEYWORDS,
+                exclude_minor_keywords=EXCLUDE_MINOR_KEYWORDS,
+    )
             for article in bib.split("\n}\n")[:-1]
         ],
         key=article_sort
