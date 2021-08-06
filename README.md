@@ -12,18 +12,12 @@ To run this code you will need Python and two Python packages:
  - `textract`
  - `unidecode`
 
-You will also need the `full_text_scan.py` code and a bibtex of articles with
-the attached PDFs.
+You will also need the `full_text_scan.py` code and a folder (e.g. ft-scan_example) containing 1) a bibtex of articles (e.g. ft-scan_example.bib) and 2)
+a folder called 'files' with the attached PDFs inside. If you export a collection from Zotero, the format will be correct.
 
-- ft-scan folder containing: `full_text_scan.py`, and two folders called
-  'TA_Yes' and 'TA_Maybe'
-- Within each of these folders, put the appropriate bibtex (e.g.
-  'TA-Maybe_1946-2013_clean_with_files_to_scan.bib') with associated 'files'
-  folder, both exported from the Zotero reference manager.
+Run with the following command:
 
-From within the TA-Maybe folder, run with the following command:
-
-```python ../../full_text_scan.py TA-Maybe_1946-2013_clean_with_files_to_scan.bib output_TA_Maybe_test.md csv_results_TA_Maybe_test.csv```
+```python full_text_scan.py ft-scan_example/ft-scan_example.bib -m ft-scan_example/output_example.md -c csv_result_example.csv```
 
 full_text_scan.py runs through the bibtex, finds the attached pdfs from the files folder, and scans the text for keywords.
 
