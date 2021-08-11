@@ -163,7 +163,7 @@ class Article:
         self.__sanitized_text = None
         self.__keywords_count = None
 
-        self.text # Initialise getting the text
+        # self.text # Initialise getting the text
 
     @property
     def author(self):
@@ -238,6 +238,17 @@ class Article:
         if self.__filename is None:
             self.__filename = get_filename(self.__raw_data)
         return self.__filename
+
+    @filename.setter
+    def filename(self, new_filename):
+        """Make sure the filename is a string."""
+        if isinstance(new_filename, str):
+            if new_filename.endswith(".pdf"):
+                self.__filename = new_filename
+            else:
+                raise ValueError("Currently only PDFs are supported.")
+        else:
+            raise TypeError("A filename should be a string.")
 
     @property
     def text(self):
@@ -358,6 +369,17 @@ class Article:
             f"{self.filename};"
             f"{self.keywords_count}"
         )
+
+    def as_bibtex(self):
+        def replace_filename(self, line):
+            if self.filename and "\tfile = {" in line:
+                return "\tfile = {Attachment:"+self.filename+":applicaton/pdf},"
+            return line
+        
+        return "\n".join([
+            replace_filename(self, line)
+            for line in self.__raw_data.split("\n")
+        ])+"\n}\n"
 
 
 def main(bibtex_filename, markdown=None, csv=None):
