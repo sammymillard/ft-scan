@@ -209,11 +209,18 @@ class Article:
         """Year the article was published. If unknown, 0."""
         def get_year(text):
             try:
-                return int(
-                    re.search(
-                        r"(?<=year = {).+?(?=})", text
-                    ).group(0).strip()
-                )
+                if "year = {" in text:
+                    return int(
+                        re.search(
+                            r"(?<=year = {).+?(?=})", text
+                        ).group(0).strip()
+                    )
+                elif "date = {" in text:
+                    return int(
+                        re.search(
+                            r"(?<=date = {).+?(?=})", text
+                        ).group(0).strip()[:4]
+                    )
             except:
                 return 0
         if self.__year is None:
@@ -407,7 +414,7 @@ def main(bibtex_filename, markdown=None, csv=None):
                 exclude_major_keywords=EXCLUDE_MAJOR_KEYWORDS,
                 exclude_minor_keywords=EXCLUDE_MINOR_KEYWORDS,
             )
-            for article in bib.split("\n}\n")[:-1]
+            for article in bib.split("\n}")[:-1]
         ],
         key=article_sort
     )
